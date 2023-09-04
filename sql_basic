@@ -1,0 +1,19 @@
+```sql
+
+CREATE TABLE Employee
+    ( 
+      [ID] INT identity(1, 1), 
+      [FirstName] Varchar(100), 
+      [LastName] Varchar(100), 
+      [Country] Varchar(100), 
+    ) 
+    GO 
+    
+    Insert into Employee ([FirstName], [LastName], [Country] ) values
+    ('Raj','Gupta','India'),
+    ('Raj','Gupta','India'),
+    ('Mohan','Kumar','USA'),
+    ('James','Barry','UK'),
+    ('James','Barry','UK'),
+    ('James','Barry','UK')
+```
