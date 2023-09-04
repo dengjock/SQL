@@ -1,19 +1,83 @@
 ```sql
+# creates database named customer
+create database Customer
 
-CREATE TABLE Employee
-    ( 
-      [ID] INT identity(1, 1), 
-      [FirstName] Varchar(100), 
-      [LastName] Varchar(100), 
-      [Country] Varchar(100), 
-    ) 
-    GO 
-    
-    Insert into Employee ([FirstName], [LastName], [Country] ) values
-    ('Raj','Gupta','India'),
-    ('Raj','Gupta','India'),
-    ('Mohan','Kumar','USA'),
-    ('James','Barry','UK'),
-    ('James','Barry','UK'),
-    ('James','Barry','UK')
+ # creates a table named Patient that has the values FirstName, LastName, and Age
+create table Patient 
+(
+    FirstName varchar(50),
+    LastName  varchar(50),
+    Age       int
+)
+
+ # insert values (different patients) into the table Patient
+insert into dbo.Patient
+(FirstName, LastName, [Age])
+	values('Johnny', 'Ken', 50);
+
+insert into dbo.Patient
+(FirstName, LastName, [Age])
+	values('Ben', 'Skinner', 32);
+
+insert into dbo.Patient
+(FirstName, LastName, [Age])
+	values('William', 'Nen', 77);
+
+insert into dbo.Patient
+(FirstName, LastName, [Age])
+	values('Brian', 'Brown', 45);
+
+insert into dbo.Patient
+(FirstName, LastName, [Age])
+	values('Tyler', 'Kent', 19);
+
+# gets all 3 columns, FirstName, LastName, and Age from Patient
+select *
+from dbo.Patient
+
+# finds the target name and updates the target name's age to 55 and 33
+select FirstName, LastName, Age
+from dbo.Patient
+where FirstName = 'Johnny'
+and LastName = 'Ken';
+
+update Patient
+Set Age = 55
+where FirstName = 'Johnny' and LastName = 'Ken';
+
+select FirstName, LastName, Age
+from dbo.Patient
+where FirstName = 'Ben'
+and LastName = 'Skinner';
+
+update Patient
+Set Age = 33
+where FirstName = 'Ben' and LastName = 'Skinner';
+
+# adds 2 new additional columns City and BloodType (automatically have NULL)
+alter table dbo.patient
+add City varchar(50);
+
+alter table dbo.patient
+add BloodType varchar(50);
+
+# updates the specific patients and sets their BloodType and City
+update Patient
+Set City = 'Miami'
+where FirstName = 'William' and LastName = 'Nen';
+
+update dbo.Patient
+Set BloodType = 'B'
+where FirstName = 'William' and LastName = 'Nen';
+
+update Patient
+Set City = 'Omaha'
+where FirstName = 'Brian' and LastName = 'Brown';
+
+update dbo.Patient
+Set BloodType = 'O'
+where FirstName = 'Brian' and LastName = 'Brown';
+
+
+
 ```
