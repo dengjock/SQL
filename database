@@ -1,0 +1,49 @@
+import sqlite3
+
+def create_table():
+    connection = sqlite3.connect("blood.db")
+    cursor = connection.cursor()
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS patient (
+            fname TEXT, 
+            lname TEXT,  
+            bloodT TEXT, 
+            bloodAmount, INT,
+            age INT, 
+            contactD INT)''')
+    connection.commit()
+    connection.close()
+
+def fetch_patient():
+    connection = sqlite3.connect('blood.db')
+    cursor = connection.cursor()
+    cursor.execute('SELECT * FROM patient')
+    patients = cursor.fetchall()
+    connection.close()
+    return patients
+
+def insert_patient(fname, lname, bloodT, bloodAmount, age, contactD):
+    connection = sqlite3.connect('blood.db')
+    cursor = connection.cursor()
+    cursor.execute('INSERT INTO patient (fName, lName, bloodT, bloodAmount, age, contactD) VALUES (?, ?, ?, ?, ?, ?)',
+                  (fName, lName, bloodT, bloodAmount, age, contactD))
+    connection.commit()
+    connection.close()
+
+def remove_patient(contactD):
+    connection = sqlite3.connect('blood.db')
+    cursor = connection.cursor()
+    cursor.execute('DELETE FROM patient WHERE contactD = ?', (contactD, ))
+    connection.commit()
+    connection.close()
+
+def search_type(bloodT):
+    connection = sqlite3.connect('blood.db')
+    cursor = connection.cursor()
+    cursor.execute('SELECT bloodT, bloodAmount FROM patient WHERE bloodT = ?', (bloodT,))
+    row = cursor.fetchall()
+    connection.close()
+    return row
+
+create_table()
