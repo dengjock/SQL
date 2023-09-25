@@ -1,6 +1,7 @@
 import tkinter as tk
 import customtkinter as ctk
 import sqlite3
+import database
 
 connection = sqlite3.connect("blood.db")
 cursor = connection.cursor()
@@ -30,14 +31,23 @@ entry3.pack(pady = 20, padx = 10)
 entry4 = ctk.CTkEntry(master=frame, placeholder_text="Age")
 entry4.pack(pady = 20, padx = 10)
 
-create_table_query = ("""CREATE TABLE IF NOT EXISTS patient(
-    fname TEXT, 
-    lname TEXT,  
-    bloodT TEXT, 
-    age INT, 
-    contactD INT)""")
-cursor.execute(create_table_query)
+#database.create_table()
+database.insert_patient("Cassie", "Cage", "AB-", 130, 26, 12)
 connection.commit()
+database.remove_patient(10)
+connection.commit()
+database.search_type("AB-")
+connection.commit()
+
+#create_table_query = ("""CREATE TABLE IF NOT EXISTS patient(
+ #   fname TEXT, 
+  #  lname TEXT,  
+   # bloodT TEXT, 
+    #bloodAmount INT,
+    #age INT, 
+    #contactD INT)""")
+#cursor.execute(create_table_query)
+#connection.commit()
 
 patients = [
     
@@ -50,10 +60,10 @@ patients = [
 
 ]
 
-cursor.executemany("INSERT INTO patient VALUES (?, ?, ?, ?, ?)", patients)
-connection.commit()
+#cursor.executemany("INSERT INTO patient VALUES (?, ?, ?, ?, ?)", patients)
+#connection.commit()
 
-cursor.execute("SELECT * FROM patient")
-print(cursor.fetchall())
+#cursor.execute("SELECT * FROM patient")
+#print(cursor.fetchall())
 connection.close()
 root.mainloop()
