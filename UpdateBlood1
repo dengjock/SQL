@@ -1,0 +1,403 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import sqlite3
+from ttkthemes import ThemedStyle
+
+# Define valid blood types
+valid_blood_types = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+
+# Initialize SQLite database
+conn = sqlite3.connect('blood_donation1.db')
+c = conn.cursor()
+c.execute('''CREATE TABLE IF NOT EXISTS donors
+             (id INTEGER PRIMARY KEY,
+              name TEXT,
+              blood_type TEXT,
+              contact_number TEXT,
+              blood_amount INTEGER,
+              age INTEGER)''')
+c.execute('''CREATE TABLE IF NOT EXISTS recipients
+             (id INTEGER PRIMARY KEY,
+              name TEXT,
+              blood_type TEXT,
+              contact_number TEXT,
+              blood_amount INTEGER,
+              age INTEGER)''')
+conn.commit()
+
+# Function to validate blood type
+def validate_blood_type(value):
+    return value in valid_blood_types
+
+# Function to validate donor fields
+def validate_donor_fields():
+    donor_fields = [
+        entry_donor_name.get(),
+        entry_donor_blood_type.get(),
+        entry_donor_contact_number.get(),
+        entry_donor_blood_amount.get(),
+        entry_donor_age.get()
+    ]
+    if all(donor_fields):
+        return True
+    else:
+        messagebox.showerror("Error", "Please fill in all donor fields.")
+        return False
+
+# Function to validate recipient fields
+def validate_recipient_fields():
+    recipient_fields = [
+        entry_recipient_name.get(),
+        entry_recipient_blood_type.get(),
+        entry_recipient_contact_number.get(),
+        entry_recipient_blood_amount.get(),
+        entry_recipient_age.get()
+    ]
+    if all(recipient_fields):
+        return True
+    else:
+        messagebox.showerror("Error", "Please fill in all recipient fields.")
+        return False
+
+# Function to clear all entry fields
+def clear_entries():
+    entry_donor_name.delete(0, tk.END)
+    entry_donor_blood_type.delete(0, tk.END)
+    entry_donor_contact_number.delete(0, tk.END)
+    entry_donor_blood_amount.delete(0, tk.END)
+    entry_donor_age.delete(0, tk.END)
+
+    entry_recipient_name.delete(0, tk.END)
+    entry_recipient_blood_type.delete(0, tk.END)
+    entry_recipient_contact_number.delete(0, tk.END)
+    entry_recipient_blood_amount.delete(0, tk.END)
+    entry_recipient_age.delete(0, tk.END)
+
+    entry_delete_donor_id.delete(0, tk.END)
+
+# Function to clear the database
+def clear_database():
+    c.execute("DELETE FROM donors")
+    c.execute("DELETE FROM recipients")
+    conn.commit()
+    update_tree()
+    update_blood_counts()
+    messagebox.showinfo("Success", "Database cleared successfully!")
+
+# Function to exit the program
+def exit_program():
+    conn.close()
+    root.destroy()
+
+# Function to add a donor
+def add_donor():
+    if not validate_donor_fields():
+        return
+
+    name = entry_donor_name.get()
+    blood_type = entry_donor_blood_type.get()
+    contact_number = entry_donor_contact_number.get()
+    blood_amount = entry_donor_blood_amount.get()
+    age = entry_donor_age.get()
+
+    if not validate_blood_type(blood_type):
+        messagebox.showerror("Error", "Invalid blood type. Please enter a valid blood type.")
+        return
+
+    c.execute("INSERT INTO donors (name, blood_type, contact_number, blood_amount, age) VALUES (?, ?, ?, ?, ?)",
+              (name, blood_type, contact_number, blood_amount, age))
+    conn.commit()
+    update_tree()
+    update_blood_counts()
+    messagebox.showinfo("Success", "Donor added successfully!")
+
+# Function to delete selected donor by ID
+def delete_donor_by_id():
+    donor_id = entry_delete_donor_id.get()
+
+    if not donor_id:
+        messagebox.showerror("Error", "Please enter a donor ID to delete.")
+        return
+
+    c.execute("SELECT * FROM donors WHERE id=?", (donor_id,))
+    donor = c.fetchone()
+
+    if donor:
+        c.execute("DELETE FROM donors WHERE id=?", (donor_id,))
+        conn.commit()
+        update_tree()
+        update_blood_counts()
+        messagebox.showinfo("Success", f"Donor with ID {donor_id} deleted successfully!")
+    else:
+        messagebox.showerror("Error", f"No donor found with ID {donor_id}.")
+
+# Function to request blood from a recipient
+def request_blood():
+    if not validate_recipient_fields():
+        return
+
+    recipient_id = generate_recipient_id()
+    name = entry_recipient_name.get()
+    blood_type = entry_recipient_blood_type.get()
+    contact_number = entry_recipient_contact_number.get()
+    blood_amount = entry_recipient_blood_amount.get()
+    age = entry_recipient_age.get()
+
+    if not validate_blood_type(blood_type):
+        messagebox.showerror("Error", "Invalid blood type. Please enter a valid blood type.")
+        return
+
+    # Check if blood type is available
+    c.execute("SELECT blood_amount FROM donors WHERE blood_type=?", (blood_type,))
+    available_blood_amount = c.fetchone()
+
+    if available_blood_amount:
+        available_blood_amount = available_blood_amount[0]
+
+        if int(blood_amount) <= available_blood_amount:
+            # Update available blood amount for the blood type
+            updated_amount = available_blood_amount - int(blood_amount)
+            if updated_amount == 0:
+                # Remove blood type entry if all is requested
+                c.execute("DELETE FROM donors WHERE blood_type=?", (blood_type,))
+            else:
+                c.execute("UPDATE donors SET blood_amount=? WHERE blood_type=?", (updated_amount, blood_type))
+
+            c.execute("INSERT INTO recipients (id, name, blood_type, contact_number, blood_amount, age) VALUES (?, ?, ?, ?, ?, ?)",
+                      (recipient_id, name, blood_type, contact_number, blood_amount, age))
+            conn.commit()
+            update_tree()
+            update_blood_counts()
+            messagebox.showinfo("Success", "Recipient added successfully!")
+        else:
+            messagebox.showerror("Error", "Requested blood amount exceeds available amount.")
+    else:
+        messagebox.showerror("Error", f"Blood type {blood_type} not available.")
+
+# Function to generate a unique recipient ID
+def generate_recipient_id():
+    c.execute("SELECT MAX(id) FROM recipients")
+    max_id = c.fetchone()[0]
+    return max_id + 1 if max_id else 1
+
+# Function to update the tree view
+def update_tree():
+    tree.delete(*tree.get_children())
+    c.execute("SELECT * FROM donors")
+    for row in c.fetchall():
+        tree.insert('', 'end', values=row)
+
+def search_donors():
+    search_criteria = entry_search_criteria.get()
+    if search_criteria:
+        c.execute("SELECT * FROM donors WHERE name LIKE ? OR blood_type LIKE ?",
+                  (f'%{search_criteria}%', f'%{search_criteria}%'))
+        results = c.fetchall()
+
+        if results:
+            tree.delete(*tree.get_children())
+            for row in results:
+                tree.insert('', 'end', values=row)
+            messagebox.showinfo("Search Results", f"Donor(s) found matching '{search_criteria}'.")
+        else:
+            messagebox.showerror("Search Results", f"No donors found matching '{search_criteria}'.")
+    else:
+        messagebox.showerror("Search Error", "Please enter a search criteria.")
+        
+def search_recipients():
+    search_criteria = entry_search_criteria.get()
+    if search_criteria:
+        c.execute("SELECT * FROM recipients WHERE name LIKE ? OR blood_type LIKE ?",
+                  (f'%{search_criteria}%', f'%{search_criteria}%'))
+        results = c.fetchall()
+
+        if results:
+            tree.delete(*tree.get_children())
+            for row in results:
+                tree.insert('', 'end', values=row)
+            messagebox.showinfo("Search Results", f"Recipient(s) found matching '{search_criteria}'.")
+        else:
+            messagebox.showerror("Search Results", f"No recipients found matching '{search_criteria}'.")
+    else:
+        messagebox.showerror("Search Error", "Please enter a search criteria.")
+
+
+def update_blood_counts():
+    counts = {}
+    c.execute("SELECT blood_type, SUM(blood_amount) FROM donors GROUP BY blood_type")
+    for row in c.fetchall():
+        blood_type, total_amount = row
+        counts[blood_type] = total_amount
+
+    # Clear existing entries in the tree
+    for item in blood_count_tree.get_children():
+        blood_count_tree.delete(item)
+
+    for blood_type, amount in counts.items():
+        blood_count_tree.insert("", "end", values=(blood_type, amount))
+
+# Create the main window
+root = tk.Tk()
+root.title("Blood Donation System")
+root.attributes('-fullscreen', True)
+
+# Apply a modern theme
+style = ThemedStyle(root)
+style.set_theme("breeze")
+
+
+
+# Entry field for search criteria
+entry_search_criteria = ttk.Entry(root, font=('Arial', 12))
+entry_search_criteria.grid(row=2, column=0, columnspan=2, pady=(0, 10), padx=10, sticky='nsew')
+
+button_search = ttk.Button(root, text="Search Donors", command=search_donors, style='Accent.TButton', padding=(10, 5))
+button_search.grid(row=2, column=2, columnspan=2, pady=(0, 10), padx=10)
+
+button_search_recipients = ttk.Button(root, text="Search Recipients", command=search_recipients, style='Accent.TButton', padding=(10, 5))
+button_search_recipients.grid(row=3, column=0, columnspan=2, pady=(0, 10), padx=10, sticky='nsew')
+
+
+
+# Donor Section
+frame_donor = ttk.LabelFrame(root, text="Donor", relief=tk.FLAT, padding=(10, 10))
+frame_donor.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
+
+label_donor_name = ttk.Label(frame_donor, text="Name:")
+label_donor_name.grid(row=0, column=0, sticky='e')
+entry_donor_name = ttk.Entry(frame_donor, font=('Arial', 12))
+entry_donor_name.grid(row=0, column=1)
+
+label_donor_blood_type = ttk.Label(frame_donor, text="Blood Type:")
+label_donor_blood_type.grid(row=1, column=0, sticky='e')
+entry_donor_blood_type = ttk.Entry(frame_donor, validate='key', validatecommand=(validate_blood_type, '%P'), font=('Arial', 12))
+entry_donor_blood_type.grid(row=1, column=1)
+
+label_donor_contact_number = ttk.Label(frame_donor, text="Contact Number:")
+label_donor_contact_number.grid(row=2, column=0, sticky='e')
+entry_donor_contact_number = ttk.Entry(frame_donor, font=('Arial', 12))
+entry_donor_contact_number.grid(row=2, column=1)
+
+label_donor_blood_amount = ttk.Label(frame_donor, text="Blood Amount:")
+label_donor_blood_amount.grid(row=3, column=0, sticky='e')
+entry_donor_blood_amount = ttk.Entry(frame_donor, font=('Arial', 12))
+entry_donor_blood_amount.grid(row=3, column=1)
+
+label_donor_age = ttk.Label(frame_donor, text="Age:")
+label_donor_age.grid(row=4, column=0, sticky='e')
+entry_donor_age = ttk.Entry(frame_donor, font=('Arial', 12))
+entry_donor_age.grid(row=4, column=1)
+
+button_add_donor = ttk.Button(frame_donor, text="Add Donor", command=add_donor, style='Accent.TButton', padding=(10, 5))
+button_add_donor.grid(row=5, columnspan=2, pady=(10, 0), padx=5)
+
+button_clear_entries = ttk.Button(frame_donor, text="Clear Entries", command=clear_entries, style='Accent.TButton', padding=(10, 5))
+button_clear_entries.grid(row=7, columnspan=2, pady=(5, 10), padx=5)
+
+button_clear_database = ttk.Button(frame_donor, text="Clear Database", command=clear_database, style='Accent.TButton', padding=(10, 5))
+button_clear_database.grid(row=8, columnspan=2, pady=(5, 10), padx=5)
+
+button_exit_program = ttk.Button(frame_donor, text="Exit Program", command=exit_program, style='Accent.TButton', padding=(10, 5))
+button_exit_program.grid(row=9, columnspan=2, pady=(5, 10), padx=5)
+
+for child in frame_donor.winfo_children():
+    child.grid_configure(pady=5)
+frame_donor.grid_configure(pady=10)
+
+# Recipient Section
+frame_recipient = ttk.LabelFrame(root, text="Recipient", relief=tk.FLAT, padding=(10, 10))
+frame_recipient.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
+
+label_recipient_name = ttk.Label(frame_recipient, text="Name:")
+label_recipient_name.grid(row=0, column=0, sticky='e')
+entry_recipient_name = ttk.Entry(frame_recipient, font=('Arial', 12))
+entry_recipient_name.grid(row=0, column=1)
+
+label_recipient_blood_type = ttk.Label(frame_recipient, text="Blood Type:")
+label_recipient_blood_type.grid(row=1, column=0, sticky='e')
+entry_recipient_blood_type = ttk.Entry(frame_recipient, validate='key', validatecommand=(validate_blood_type, '%P'), font=('Arial', 12))
+entry_recipient_blood_type.grid(row=1, column=1)
+
+label_recipient_contact_number = ttk.Label(frame_recipient, text="Contact Number:")
+label_recipient_contact_number.grid(row=2, column=0, sticky='e')
+entry_recipient_contact_number = ttk.Entry(frame_recipient, font=('Arial', 12))
+entry_recipient_contact_number.grid(row=2, column=1)
+
+label_recipient_blood_amount = ttk.Label(frame_recipient, text="Blood Amount:")
+label_recipient_blood_amount.grid(row=3, column=0, sticky='e')
+entry_recipient_blood_amount = ttk.Entry(frame_recipient, font=('Arial', 12))
+entry_recipient_blood_amount.grid(row=3, column=1)
+
+label_recipient_age = ttk.Label(frame_recipient, text="Age:")
+label_recipient_age.grid(row=4, column=0, sticky='e')
+entry_recipient_age = ttk.Entry(frame_recipient, font=('Arial', 12))
+entry_recipient_age.grid(row=4, column=1)
+
+button_request_blood = ttk.Button(frame_recipient, text="Request Blood", command=request_blood, style='Accent.TButton', padding=(10, 5))
+button_request_blood.grid(row=5, columnspan=2, pady=(10, 0), padx=5)
+
+button_clear_entries = ttk.Button(frame_recipient, text="Clear Entries", command=clear_entries, style='Accent.TButton', padding=(10, 5))
+button_clear_entries.grid(row=6, columnspan=2, pady=(5, 10), padx=5)
+
+for child in frame_recipient.winfo_children():
+    child.grid_configure(pady=5)
+frame_recipient.grid_configure(pady=10)
+
+# Donor Deletion Section
+frame_delete_donor = ttk.LabelFrame(root, text="Delete Donor", relief=tk.FLAT, padding=(10, 10))
+frame_delete_donor.grid(row=0, column=2, padx=10, pady=10, sticky='nsew')
+
+label_delete_donor_id = ttk.Label(frame_delete_donor, text="Enter Donor ID:")
+label_delete_donor_id.grid(row=0, column=0, sticky='e')
+entry_delete_donor_id = ttk.Entry(frame_delete_donor, font=('Arial', 12))
+entry_delete_donor_id.grid(row=0, column=1)
+
+button_delete_donor = ttk.Button(frame_delete_donor, text="Delete Donor", command=delete_donor_by_id, style='Accent.TButton', padding=(10, 5))
+button_delete_donor.grid(row=1, columnspan=2, pady=(10, 0), padx=5)
+
+for child in frame_delete_donor.winfo_children():
+    child.grid_configure(pady=5)
+frame_delete_donor.grid_configure(pady=10)
+
+# Create a tree view
+tree = ttk.Treeview(root, columns=("ID", "Name", "Blood Type", "Contact Number", "Blood Amount", "Age"), show="headings")
+tree.heading("ID", text="ID")
+tree.heading("Name", text="Name")
+tree.heading("Blood Type", text="Blood Type")
+tree.heading("Contact Number", text="Contact Number")
+tree.heading("Blood Amount", text="Blood Amount")
+tree.heading("Age", text="Age")
+tree.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky='nsew')
+
+tree.column("ID", width=30)
+tree.column("Name", width=150)
+tree.column("Blood Type", width=80)
+tree.column("Contact Number", width=120)
+tree.column("Blood Amount", width=80)
+tree.column("Age", width=50)
+
+scrollbar = ttk.Scrollbar(root, orient="vertical", command=tree.yview)
+scrollbar.grid(row=1, column=2, sticky='ns', padx=(0, 10))
+tree.configure(yscrollcommand=scrollbar.set)
+
+# Available Blood Types Section
+frame_blood_counts = ttk.LabelFrame(root, text="Available Blood Types", relief=tk.GROOVE, padding=(10, 10))
+frame_blood_counts.grid(row=0, column=3, padx=10, pady=10, sticky='nsew')
+
+blood_count_tree = ttk.Treeview(frame_blood_counts, columns=("Blood Type", "Amount"), show="headings")
+blood_count_tree.heading("Blood Type", text="Blood Type")
+blood_count_tree.heading("Amount", text="Amount (ml)")
+blood_count_tree.grid(row=1, column=3, padx=(0, 10))
+
+for child in frame_blood_counts.winfo_children():
+    child.grid_configure(pady=5)
+frame_blood_counts.grid_configure(pady=10)
+
+
+tree.grid(row=1, column=0, columnspan=3, padx=10, pady=10, sticky='nsew')
+
+
+update_tree()
+update_blood_counts()
+
+root.mainloop()
